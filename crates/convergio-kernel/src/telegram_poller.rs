@@ -62,10 +62,14 @@ struct SendMessageBody {
 impl TelegramApi {
     pub fn new(bot_token: String, authorized_chat_ids: Vec<String>) -> Self {
         let base_url = format!("https://api.telegram.org/bot{bot_token}");
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .unwrap_or_default();
         Self {
             bot_token,
             authorized_chat_ids,
-            client: reqwest::Client::new(),
+            client,
             base_url,
         }
     }
@@ -113,14 +117,16 @@ impl TelegramApi {
         reply_to: Option<i64>,
     ) -> Result<(), String> {
         let url = format!("{}/sendMessage", self.base_url);
-        // Escape HTML in MLX output; preserve formatting in known-safe text
-        let safe_text = if text.contains("<b>") || text.contains("<code>") {
-            text.to_string()
-        } else {
-            text.replace('&', "&amp;")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;")
-        };
+        // SEC: always escape HTML first, then restore only our known-safe tags
+        let escaped = text
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;");
+        let safe_text = escaped
+            .replace("&lt;b&gt;", "<b>")
+            .replace("&lt;/b&gt;", "</b>")
+            .replace("&lt;code&gt;", "<code>")
+            .replace("&lt;/code&gt;", "</code>");
         let body = SendMessageBody {
             chat_id,
             text: safe_text,

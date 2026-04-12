@@ -5,6 +5,18 @@
 
 use super::types::{EvidenceCheck, EvidenceReport, KernelSeverity};
 
+/// Maximum allowed path length to prevent abuse.
+const MAX_PATH_LEN: usize = 1024;
+
+/// Reject paths that attempt directory traversal.
+fn is_safe_path(path: &str) -> bool {
+    if path.len() > MAX_PATH_LEN {
+        return false;
+    }
+    // Reject path traversal sequences and null bytes
+    !path.contains("..") && !path.contains('\0') && !path.starts_with('~')
+}
+
 /// Run evidence checks for a task status transition.
 ///
 /// Checks: declared outputs exist, type check passes, tests pass, git clean.
@@ -17,8 +29,16 @@ pub fn verify_task(
 ) -> EvidenceReport {
     let mut checks = Vec::new();
 
-    // Check 1: declared output files exist
+    // Check 1: declared output files exist (with path validation)
     for output in declared_outputs {
+        if !is_safe_path(output) {
+            checks.push(EvidenceCheck {
+                name: format!("output_exists:{output}"),
+                passed: false,
+                detail: "rejected: path contains traversal sequence".to_string(),
+            });
+            continue;
+        }
         let exists = std::path::Path::new(output).exists();
         checks.push(EvidenceCheck {
             name: format!("output_exists:{output}"),
@@ -31,10 +51,18 @@ pub fn verify_task(
         });
     }
 
-    // Check 2: git clean (if worktree provided)
+    // Check 2: git clean (if worktree provided, with path validation)
     if let Some(wt) = worktree {
-        let clean = check_git_clean(wt);
-        checks.push(clean);
+        if !is_safe_path(wt) {
+            checks.push(EvidenceCheck {
+                name: "git_clean".to_string(),
+                passed: false,
+                detail: "rejected: worktree path contains traversal sequence".to_string(),
+            });
+        } else {
+            let clean = check_git_clean(wt);
+            checks.push(clean);
+        }
     }
 
     let all_passed = checks.iter().all(|c| c.passed);

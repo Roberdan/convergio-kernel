@@ -46,7 +46,11 @@ pub fn kernel_routes(state: Arc<KernelState>) -> Router {
 /// Probe the local inference router to check if an MLX model is healthy.
 async fn probe_mlx_model_available() -> bool {
     let url = "http://localhost:8420/api/inference/routing-decision?tier=t1";
-    let resp = match reqwest::get(url).await {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+        .unwrap_or_default();
+    let resp = match client.get(url).send().await {
         Ok(r) => r,
         Err(_) => return false,
     };
@@ -84,19 +88,32 @@ struct ClassifyBody {
     situation: String,
 }
 
+/// Maximum allowed input length for user-supplied text fields (16 KiB).
+const MAX_INPUT_LEN: usize = 16_384;
+
+/// Truncate a string to `MAX_INPUT_LEN` to prevent DoS via oversized payloads.
+fn sanitize_input(s: &str) -> &str {
+    if s.len() > MAX_INPUT_LEN {
+        &s[..MAX_INPUT_LEN]
+    } else {
+        s
+    }
+}
+
 async fn handle_classify(
     State(s): State<Arc<KernelState>>,
     Json(body): Json<ClassifyBody>,
 ) -> Json<Value> {
+    let situation = sanitize_input(&body.situation);
     let engine = s.engine.read().await;
-    let action = engine.classify(&body.situation);
+    let action = engine.classify(situation);
     // Log event to kernel_events
     if let Ok(conn) = s.pool.get() {
         let severity_str = format!("{}", action.severity);
         let _ = conn.execute(
             "INSERT INTO kernel_events (severity, source, message, action_taken) \
              VALUES (?1, 'classify', ?2, ?3)",
-            rusqlite::params![severity_str, body.situation, action.action],
+            rusqlite::params![severity_str, situation, action.action],
         );
     }
     Json(json!({
@@ -183,26 +200,23 @@ async fn handle_events(
         Ok(c) => c,
         Err(e) => return Json(json!({"error": e.to_string()})),
     };
-    let limit = q.limit.unwrap_or(50).min(200);
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match &q.severity {
+    let limit = q.limit.unwrap_or(50).min(200) as i64;
+    // SEC: use parameterized LIMIT to prevent SQL injection
+    let (sql, params): (&str, Vec<Box<dyn rusqlite::types::ToSql>>) = match &q.severity {
         Some(sev) => (
-            format!(
-                "SELECT id, timestamp, severity, source, message, action_taken \
-                 FROM kernel_events WHERE severity = ?1 \
-                 ORDER BY timestamp DESC LIMIT {limit}"
-            ),
-            vec![Box::new(sev.clone())],
+            "SELECT id, timestamp, severity, source, message, action_taken \
+             FROM kernel_events WHERE severity = ?1 \
+             ORDER BY timestamp DESC LIMIT ?2",
+            vec![Box::new(sev.clone()), Box::new(limit)],
         ),
         None => (
-            format!(
-                "SELECT id, timestamp, severity, source, message, action_taken \
-                 FROM kernel_events ORDER BY timestamp DESC LIMIT {limit}"
-            ),
-            vec![],
+            "SELECT id, timestamp, severity, source, message, action_taken \
+             FROM kernel_events ORDER BY timestamp DESC LIMIT ?1",
+            vec![Box::new(limit)],
         ),
     };
     let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    let mut stmt = match conn.prepare(&sql) {
+    let mut stmt = match conn.prepare(sql) {
         Ok(s) => s,
         Err(e) => return Json(json!({"error": e.to_string()})),
     };

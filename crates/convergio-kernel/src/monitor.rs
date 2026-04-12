@@ -49,7 +49,11 @@ pub fn classify_results(results: &[KernelCheckResult]) -> KernelSeverity {
 
 fn check_daemon_health(daemon_url: &str) -> KernelCheckResult {
     let url = format!("{daemon_url}/health");
-    match reqwest::blocking::get(&url) {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap_or_else(|_| reqwest::blocking::Client::new());
+    match client.get(&url).send() {
         Ok(resp) if resp.status().is_success() => KernelCheckResult {
             check_name: "daemon_health".to_string(),
             ok: true,
@@ -70,7 +74,11 @@ fn check_daemon_health(daemon_url: &str) -> KernelCheckResult {
 
 fn check_peer_health(peer_url: &str) -> KernelCheckResult {
     let url = format!("{peer_url}/health");
-    match reqwest::blocking::get(&url) {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap_or_else(|_| reqwest::blocking::Client::new());
+    match client.get(&url).send() {
         Ok(resp) if resp.status().is_success() => KernelCheckResult {
             check_name: "peer_health".to_string(),
             ok: true,
