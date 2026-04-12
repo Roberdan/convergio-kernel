@@ -219,7 +219,10 @@ pub(crate) async fn call_inference(
     prompt: &str,
     max_tokens: u32,
 ) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap_or_default();
     let resp = client
         .post(format!("{base_url}/api/inference/complete"))
         .json(&serde_json::json!({

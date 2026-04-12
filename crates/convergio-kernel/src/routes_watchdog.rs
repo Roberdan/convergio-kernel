@@ -49,17 +49,20 @@ async fn handle_watchdog_status(State(s): State<Arc<KernelState>>) -> Json<Value
 async fn handle_telegram_test(State(_s): State<Arc<KernelState>>) -> Json<Value> {
     match TelegramApi::from_env() {
         Err(e) => Json(json!({"ok": false, "error": e})),
-        Ok(api) => match api
-            .reply(
-                api.authorized_chat_ids[0].parse().unwrap_or(0),
-                "<b>Jarvis</b> Telegram test OK",
-                None,
-            )
-            .await
-        {
-            Ok(()) => Json(json!({"ok": true})),
-            Err(e) => Json(json!({"ok": false, "error": e})),
-        },
+        Ok(api) => {
+            let chat_id = api
+                .authorized_chat_ids
+                .first()
+                .and_then(|id| id.parse().ok())
+                .unwrap_or(0i64);
+            match api
+                .reply(chat_id, "<b>Jarvis</b> Telegram test OK", None)
+                .await
+            {
+                Ok(()) => Json(json!({"ok": true})),
+                Err(e) => Json(json!({"ok": false, "error": e})),
+            }
+        }
     }
 }
 
@@ -78,7 +81,10 @@ async fn handle_register_node(State(_s): State<Arc<KernelState>>) -> Json<Value>
              "metadata": {"classify_latency_ms": 580, "code_latency_ms": 1300}},
         ]
     });
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
     match client
         .post(format!("{daemon_url}/api/mesh/capabilities/register"))
         .query(&[("peer_name", &node_name)])
