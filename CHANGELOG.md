@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/Roberdan/convergio-kernel/compare/v0.1.4...v0.1.5) (2026-04-13)
+
+
+### Bug Fixes
+
+* add crates.io publishing metadata (description, repository) ([4eba90c](https://github.com/Roberdan/convergio-kernel/commit/4eba90c4a02dac3a3e2615f56eb144f9d2ce5dec))
+
 ## [0.1.4](https://github.com/Roberdan/convergio-kernel/compare/v0.1.3...v0.1.4) (2026-04-13)
 
 
