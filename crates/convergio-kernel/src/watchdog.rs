@@ -244,11 +244,12 @@ pub(crate) async fn call_inference(
 
 pub(crate) fn log_event(pool: &ConnPool, intent: &str, text: &str) {
     if let Ok(conn) = pool.get() {
+        let truncated = crate::routes::truncate_utf8(text, 500);
         let _ = conn.execute(
             "INSERT INTO kernel_events \
              (severity, source, message, action_taken) \
              VALUES ('ok', 'telegram-watchdog', ?1, ?2)",
-            rusqlite::params![&text[..text.len().min(500)], intent],
+            rusqlite::params![truncated, intent],
         );
     }
 }
