@@ -4,6 +4,7 @@ description = "Execution kernel — process lifecycle, sandbox isolation, resour
 version = "0.1.4"
 edition.workspace = true
 license.workspace = true
+repository = "https://github.com/Roberdan/convergio-kernel"
 
 [dependencies]
 convergio-types = { workspace = true }
