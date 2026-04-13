@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/Roberdan/convergio-kernel/compare/v0.1.5...v0.1.6) (2026-04-13)
+
+
+### Bug Fixes
+
+* pass CARGO_REGISTRY_TOKEN to release workflow ([313b6b9](https://github.com/Roberdan/convergio-kernel/commit/313b6b93649086f38314bfefa9ceb4aff2a19f4b))
+
 ## [0.1.5](https://github.com/Roberdan/convergio-kernel/compare/v0.1.4...v0.1.5) (2026-04-13)
 
 
