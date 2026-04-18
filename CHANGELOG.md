@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.7](https://github.com/Roberdan/convergio-kernel/compare/v0.1.6...v0.1.7) (2026-04-18)
+
+
+### Bug Fixes
+
+* prevent UTF-8 boundary panics in input truncation (DoS) ([ef0b4c2](https://github.com/Roberdan/convergio-kernel/commit/ef0b4c2e1c050ab910a51dc9dd900833a280776b))
+* security and quality audit pass 2 ([9a90d8e](https://github.com/Roberdan/convergio-kernel/commit/9a90d8ec445a6211606c1da39d490aac1012f01e))
+
 ## [0.1.6](https://github.com/Roberdan/convergio-kernel/compare/v0.1.5...v0.1.6) (2026-04-13)
 
 
