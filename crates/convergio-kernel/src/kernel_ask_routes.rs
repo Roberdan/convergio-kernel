@@ -11,7 +11,7 @@ use axum::response::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::routes::KernelState;
+use crate::routes::{truncate_utf8, KernelState};
 use crate::watchdog::call_inference;
 
 /// Intent categories for org-scoped questions.
@@ -73,12 +73,12 @@ pub async fn handle_classify_intent(
         Err(_) => ("escalation".to_string(), 0.0_f64),
     };
 
-    // Log to kernel_events
+    // Log to kernel_events (truncate to prevent oversized rows)
     if let Ok(conn) = s.pool.get() {
         let _ = conn.execute(
             "INSERT INTO kernel_events (severity, source, message, action_taken) \
              VALUES ('ok', 'classify-intent', ?1, ?2)",
-            rusqlite::params![body.question, intent],
+            rusqlite::params![truncate_utf8(&body.question, 500), intent],
         );
     }
 
@@ -150,12 +150,12 @@ pub async fn handle_grounded_infer(
     };
     let latency_ms = start.elapsed().as_millis() as u64;
 
-    // Log to kernel_events
+    // Log to kernel_events (truncate to prevent oversized rows)
     if let Ok(conn) = s.pool.get() {
         let _ = conn.execute(
             "INSERT INTO kernel_events (severity, source, message, action_taken) \
              VALUES ('ok', 'grounded-infer', ?1, 'answered')",
-            rusqlite::params![&body.question[..body.question.len().min(500)]],
+            rusqlite::params![truncate_utf8(&body.question, 500)],
         );
     }
 
@@ -199,7 +199,10 @@ pub async fn handle_agent_ask(
         let _ = conn.execute(
             "INSERT INTO kernel_events (severity, source, message, action_taken) \
              VALUES ('ok', 'agent-ask', ?1, ?2)",
-            rusqlite::params![&body.message[..body.message.len().min(500)], &body.agent],
+            rusqlite::params![
+                truncate_utf8(&body.message, 500),
+                truncate_utf8(&body.agent, 100)
+            ],
         );
     }
 

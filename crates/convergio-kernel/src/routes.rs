@@ -91,13 +91,18 @@ struct ClassifyBody {
 /// Maximum allowed input length for user-supplied text fields (16 KiB).
 const MAX_INPUT_LEN: usize = 16_384;
 
+/// Truncate a string to `max` bytes (UTF-8 safe) to prevent DoS via oversized payloads.
+pub(crate) fn truncate_utf8(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        s
+    } else {
+        &s[..s.floor_char_boundary(max)]
+    }
+}
+
 /// Truncate a string to `MAX_INPUT_LEN` to prevent DoS via oversized payloads.
 fn sanitize_input(s: &str) -> &str {
-    if s.len() > MAX_INPUT_LEN {
-        &s[..MAX_INPUT_LEN]
-    } else {
-        s
-    }
+    truncate_utf8(s, MAX_INPUT_LEN)
 }
 
 async fn handle_classify(
